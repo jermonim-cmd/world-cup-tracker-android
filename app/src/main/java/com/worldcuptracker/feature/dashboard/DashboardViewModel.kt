@@ -16,11 +16,13 @@ import com.worldcuptracker.core.scanning.TicketScanManager
 import com.worldcuptracker.feature.widget.WidgetUpdateWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
@@ -182,12 +184,14 @@ class DashboardViewModel @Inject constructor(
         _livePriceState.value = LivePriceState.Loading(match)
         viewModelScope.launch {
             runCatching {
-                vividSeatsDataSource.fetchLivePrice(url)
+                // Use IO dispatcher for network request (cannot run on main thread)
+                withContext(Dispatchers.IO) {
+                    vividSeatsDataSource.fetchLivePrice(url)
+                }
             }.onSuccess { livePrice ->
                 if (livePrice != null) {
                     _livePriceState.value = LivePriceState.Success(match, livePrice, url, isCached = false)
                 } else {
-                    // If live fetch fails, show error encouraging user to open link
                     _livePriceState.value = LivePriceState.Error(
                         match,
                         "Could not fetch live prices from Vivid Seats. Opening app may show prices that differ from website if it hasn't refreshed recently. Try opening the link to see current prices.",
