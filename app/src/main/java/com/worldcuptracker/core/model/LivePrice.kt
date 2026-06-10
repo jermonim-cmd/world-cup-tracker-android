@@ -6,5 +6,9 @@ data class LivePrice(
     val averagePrice: Int,
     val listingCount: Int,
     val estimatedTotal: Int, // minPrice + estimated fees
-    val estimatedFeePercent: Int = 15, // Typical Vivid Seats fee percentage
+    val estimatedFeePercent: Int = 15, // Vivid Seats fee percentage
+    val serviceFeeAmount: Int = 0, // Extracted service fee
+    val facilityFeeAmount: Int = 0, // Extracted facility fee
+    val taxAmount: Int = 0, // Extracted tax
+    val hasActualFees: Boolean = false, // Whether fees were parsed from page
 )

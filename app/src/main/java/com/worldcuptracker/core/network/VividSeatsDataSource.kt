@@ -224,16 +224,25 @@ class VividSeatsDataSource @Inject constructor(
             val minPrice = prices.minOrNull() ?: 0
             val maxPrice = prices.maxOrNull() ?: 0
             val avgPrice = prices.average().toInt()
-            val estimatedTotal = (minPrice * 1.15).toInt() // Add 15% fee estimate
+
+            // Try to extract actual fees from the page
+            val fees = extractActualFees(html, minPrice)
 
             Log.d(TAG, "✓ Live prices: min=$minPrice, avg=$avgPrice, max=$maxPrice, count=${prices.size}")
+            Log.d(TAG, "  Fees: service=${fees.serviceFee}, facility=${fees.facilityFee}, tax=${fees.tax}, hasActual=${fees.hasActualFees}")
+
+            val estimatedTotal = minPrice + fees.serviceFee + fees.facilityFee + fees.tax
 
             LivePrice(
                 minPrice = minPrice,
                 maxPrice = maxPrice,
                 averagePrice = avgPrice,
                 listingCount = prices.size,
-                estimatedTotal = estimatedTotal
+                estimatedTotal = estimatedTotal,
+                serviceFeeAmount = fees.serviceFee,
+                facilityFeeAmount = fees.facilityFee,
+                taxAmount = fees.tax,
+                hasActualFees = fees.hasActualFees
             )
         } catch (e: Exception) {
             Log.e(TAG, "Live price fetch error: ${e.message}", e)
@@ -284,6 +293,94 @@ class VividSeatsDataSource @Inject constructor(
             null
         }
     }
+
+    private fun extractActualFees(html: String, basePrice: Int): FeeBreakdown {
+        return try {
+            val doc = Jsoup.parse(html)
+
+            // Try to find fee information in various possible locations
+            var serviceFee = 0
+            var facilityFee = 0
+            var taxAmount = 0
+
+            // Look for fee text patterns in the page
+            val pageText = doc.text()
+
+            // Try to extract service fees (usually 15-20% of ticket price)
+            val serviceFeePattern = Regex("""Service Fee[:\s]+\$(\d+(?:\.\d{2})?)""", RegexOption.IGNORE_CASE)
+            serviceFeePattern.find(pageText)?.let {
+                serviceFee = it.groupValues[1].toDoubleOrNull()?.toInt() ?: 0
+            }
+
+            // Try to extract facility fees
+            val facilityFeePattern = Regex("""Facility Charge[:\s]+\$(\d+(?:\.\d{2})?)|Facility Fee[:\s]+\$(\d+(?:\.\d{2})?)""", RegexOption.IGNORE_CASE)
+            facilityFeePattern.find(pageText)?.let {
+                facilityFee = (it.groupValues[1].ifEmpty { it.groupValues[2] }).toDoubleOrNull()?.toInt() ?: 0
+            }
+
+            // Try to extract tax/sales tax
+            val taxPattern = Regex("""(?:Sales\s+)?Tax[:\s]+\$(\d+(?:\.\d{2})?)|Taxes[:\s]+\$(\d+(?:\.\d{2})?)""", RegexOption.IGNORE_CASE)
+            taxPattern.find(pageText)?.let {
+                taxAmount = (it.groupValues[1].ifEmpty { it.groupValues[2] }).toDoubleOrNull()?.toInt() ?: 0
+            }
+
+            // If we found actual fees, return them
+            if (serviceFee > 0 || facilityFee > 0 || taxAmount > 0) {
+                Log.d(TAG, "  ✓ Extracted actual fees from page")
+                return FeeBreakdown(serviceFee, facilityFee, taxAmount, hasActualFees = true)
+            }
+
+            // Try JSON extraction for fees
+            try {
+                val script = doc.select("script#__NEXT_DATA__").firstOrNull()?.data()
+                    ?: doc.select("script").filter { it.data().contains("serviceFee") }.firstOrNull()?.data()
+
+                if (script != null) {
+                    val json = JSONObject(script)
+                    // Look for fee information in various JSON paths
+                    val items = json.getJSONObject("props")
+                        .getJSONObject("pageProps")
+                        .getJSONObject("initialProductionListData")
+                        .getJSONArray("items")
+
+                    if (items.length() > 0) {
+                        val firstItem = items.getJSONObject(0)
+                        serviceFee = firstItem.optInt("serviceFee", 0)
+                        facilityFee = firstItem.optInt("facilityFee", 0)
+                        taxAmount = firstItem.optInt("tax", 0)
+
+                        if (serviceFee > 0 || facilityFee > 0 || taxAmount > 0) {
+                            Log.d(TAG, "  ✓ Extracted fees from JSON data")
+                            return FeeBreakdown(serviceFee, facilityFee, taxAmount, hasActualFees = true)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "  JSON fee extraction failed: ${e.message}")
+            }
+
+            // Fallback: estimate based on typical Vivid Seats fee structure
+            // Service fee is typically 15-20% of ticket price
+            serviceFee = (basePrice * 0.18).toInt() // 18% service fee estimate
+            facilityFee = 10 // Typical facility fee
+            taxAmount = (basePrice * 0.10).toInt() // 10% tax estimate (varies by location)
+
+            Log.d(TAG, "  Using estimated fees (15-20% service + facility + tax)")
+            FeeBreakdown(serviceFee, facilityFee, taxAmount, hasActualFees = false)
+        } catch (e: Exception) {
+            Log.d(TAG, "Fee extraction error: ${e.message}")
+            // Safe defaults
+            val estimatedService = (basePrice * 0.18).toInt()
+            FeeBreakdown(estimatedService, 10, 0, hasActualFees = false)
+        }
+    }
+
+    private data class FeeBreakdown(
+        val serviceFee: Int,
+        val facilityFee: Int,
+        val tax: Int,
+        val hasActualFees: Boolean = false,
+    )
 
     private fun extractPricesFromHtml(html: String): List<Int>? {
         return try {

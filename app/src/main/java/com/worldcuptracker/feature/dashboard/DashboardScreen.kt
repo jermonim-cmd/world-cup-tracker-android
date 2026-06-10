@@ -686,30 +686,68 @@ private fun LivePriceDialog(
 
                 Spacer(Modifier.height(8.dp))
 
+                // Fee Breakdown Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = Color(0xFF1F3A4D)),
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            if (livePrice.hasActualFees) "Actual Fees" else "Estimated Fees",
+                            color = SlateText,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+
+                        Spacer(Modifier.height(8.dp))
+
+                        // Price breakdown
+                        PriceBreakdownRow("Ticket Price", livePrice.minPrice, TextPrimary)
+                        if (livePrice.serviceFeeAmount > 0) {
+                            PriceBreakdownRow("Service Fee", livePrice.serviceFeeAmount, SlateText)
+                        }
+                        if (livePrice.facilityFeeAmount > 0) {
+                            PriceBreakdownRow("Facility Fee", livePrice.facilityFeeAmount, SlateText)
+                        }
+                        if (livePrice.taxAmount > 0) {
+                            PriceBreakdownRow("Tax", livePrice.taxAmount, SlateText)
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+
+                        // Divider
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(Color(0xFF334155))
+                        )
+
+                        Spacer(Modifier.height(8.dp))
+
+                        // Total
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text("Est. Total (with fees)", color = SlateText, fontSize = 12.sp)
+                            Text("Estimated Total", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             Text(
                                 "$${livePrice.estimatedTotal.toFormattedPrice()}",
                                 color = GreenPrice,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp,
+                                fontSize = 18.sp,
                             )
                         }
-                        Text(
-                            "~${livePrice.estimatedFeePercent}% Vivid Seats fees included",
-                            color = TextMuted,
-                            fontSize = 10.sp,
-                            modifier = Modifier.padding(top = 4.dp),
-                        )
+
+                        if (!livePrice.hasActualFees) {
+                            Text(
+                                "💡 Exact fees shown at Vivid Seats checkout",
+                                color = TextMuted,
+                                fontSize = 9.sp,
+                                modifier = Modifier.padding(top = 6.dp),
+                            )
+                        }
                     }
                 }
 
@@ -755,6 +793,22 @@ private fun PriceStatRow(label: String, price: Int, color: Color) {
             color = color,
             fontWeight = FontWeight.Bold,
             fontSize = 14.sp,
+        )
+    }
+}
+
+@Composable
+private fun PriceBreakdownRow(label: String, amount: Int, color: Color) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, color = color, fontSize = 11.sp)
+        Text(
+            "$${amount.toFormattedPrice()}",
+            color = color,
+            fontSize = 11.sp,
         )
     }
 }
