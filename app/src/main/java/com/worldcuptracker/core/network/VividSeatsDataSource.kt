@@ -120,7 +120,8 @@ class VividSeatsDataSource @Inject constructor(
                     stadiumKey = stadium,
                     rawDate = item.optString("localDate"),
                     url = url,
-                    listingCount = listingCount
+                    listingCount = listingCount,
+                    currency = getCurrencyForStadium(stadium)
                 ))
             }
 
@@ -381,6 +382,13 @@ class VividSeatsDataSource @Inject constructor(
         val tax: Int,
         val hasActualFees: Boolean = false,
     )
+
+    private fun getCurrencyForStadium(stadium: StadiumKey): String {
+        return when (stadium) {
+            StadiumKey.TORONTO, StadiumKey.VANCOUVER -> "CAD"
+            else -> "USD"
+        }
+    }
 
     private fun extractPricesFromHtml(html: String): List<Int>? {
         return try {

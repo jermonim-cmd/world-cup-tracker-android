@@ -11,4 +11,10 @@ data class LivePrice(
     val facilityFeeAmount: Int = 0, // Extracted facility fee
     val taxAmount: Int = 0, // Extracted tax
     val hasActualFees: Boolean = false, // Whether fees were parsed from page
+    val currency: String = "USD", // Currency (USD or CAD)
 )
+
+enum class Currency(val code: String, val symbol: String) {
+    USD("USD", "$"),
+    CAD("CAD", "$"),
+}
