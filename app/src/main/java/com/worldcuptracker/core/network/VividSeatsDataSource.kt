@@ -207,23 +207,40 @@ class VividSeatsDataSource @Inject constructor(
     }
 
     fun fetchLivePrice(url: String): LivePrice? {
-        if (url.isEmpty()) return null
+        if (url.isEmpty()) {
+            Log.e(TAG, "Live price fetch: Empty URL provided")
+            return null
+        }
+
+        Log.d(TAG, "Fetching live price from: $url")
 
         val request = Request.Builder()
             .url(url)
             .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
             .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+            .header("Accept-Language", "en-US,en;q=0.5")
+            .header("Connection", "keep-alive")
             .build()
 
         return try {
             val response = client.newCall(request).execute()
+            Log.d(TAG, "Live price response code: ${response.code}")
+
             if (!response.isSuccessful) {
                 Log.e(TAG, "Live price fetch failed: ${response.code}")
                 return null
             }
 
-            val html = response.body?.string() ?: return null
+            val html = response.body?.string()
+            if (html == null) {
+                Log.e(TAG, "Live price fetch: Empty response body")
+                return null
+            }
+
             Log.d(TAG, "✓ Fetched live price HTML (${html.length} bytes)")
+            if (html.length < 100) {
+                Log.e(TAG, "⚠️ HTML response suspiciously small: ${html.take(200)}")
+            }
 
             // Try multiple strategies to extract prices
             val prices = extractPricesFromJson(html)
@@ -278,11 +295,25 @@ class VividSeatsDataSource @Inject constructor(
     private fun extractPricesFromJson(html: String): List<Int>? {
         return try {
             val doc = Jsoup.parse(html)
-            val script = doc.select("script#__NEXT_DATA__").firstOrNull()?.data()
-                ?: doc.select("script").filter {
-                    it.data().contains("initialProductionListData")
-                }.firstOrNull()?.data()
-                ?: return null
+
+            // Look for __NEXT_DATA__ script
+            var script = doc.select("script#__NEXT_DATA__").firstOrNull()?.data()
+
+            if (script == null) {
+                Log.d(TAG, "  __NEXT_DATA__ not found, searching for alternative scripts...")
+                // Try alternative patterns
+                script = doc.select("script").find {
+                    val content = it.data()
+                    content.contains("initialProductionListData") ||
+                    content.contains("minPrice") ||
+                    content.contains("Event data")
+                }?.data()
+            }
+
+            if (script == null) {
+                Log.d(TAG, "  No JSON data scripts found")
+                return null
+            }
 
             Log.d(TAG, "  Attempting JSON extraction (${script.length} bytes)")
 
@@ -421,10 +452,13 @@ class VividSeatsDataSource @Inject constructor(
             // Try multiple selectors for price elements
             val selectors = listOf(
                 "[data-testid^=production-listing]",
+                "[data-testid*=listing]",
+                "[class*='listing']",
                 "[class*='price']",
                 "[class*='Price']",
                 "div[role='button']",
-                "[class*='listing']"
+                "span[class*='price']",
+                "div[class*='amount']"
             )
 
             for (selector in selectors) {
@@ -435,29 +469,36 @@ class VividSeatsDataSource @Inject constructor(
 
                 elements.forEach { el ->
                     val text = el.text()
-                    // Look for dollar amounts
-                    val priceMatches = Regex("\\$(\\d{1,5}(?:,\\d{3})*(?:\\.\\d{2})?)").findAll(text)
-                    priceMatches.forEach { match ->
-                        val priceStr = match.groupValues[1].replace(",", "")
-                        val price = priceStr.toDoubleOrNull()?.toInt()
-                        if (price != null && price > 0 && price < 10000) {
-                            prices.add(price)
+                    if (text.contains("$")) {
+                        // Look for dollar amounts
+                        val priceMatches = Regex("""\$(\d{1,5}(?:,\d{3})*(?:\.\d{2})?)""").findAll(text)
+                        priceMatches.forEach { match ->
+                            val priceStr = match.groupValues[1].replace(",", "")
+                            val price = priceStr.toDoubleOrNull()?.toInt()
+                            if (price != null && price > 0 && price < 10000) {
+                                prices.add(price)
+                            }
                         }
                     }
                 }
 
-                if (prices.isNotEmpty()) break
+                if (prices.isNotEmpty()) {
+                    Log.d(TAG, "    ✓ Found prices with selector: $selector")
+                    break
+                }
             }
 
             if (prices.isNotEmpty()) {
-                Log.d(TAG, "  ✓ HTML extraction found ${prices.size} prices")
+                Log.d(TAG, "  ✓ HTML extraction found ${prices.size} unique prices")
                 prices.distinct()
             } else {
                 Log.d(TAG, "  ✗ HTML extraction found no prices")
+                // Log a sample of the HTML for debugging
+                Log.d(TAG, "  HTML sample: ${html.take(500).replace("\n", " ")}")
                 null
             }
         } catch (e: Exception) {
-            Log.d(TAG, "  HTML extraction error: ${e.message}")
+            Log.e(TAG, "  HTML extraction error: ${e.message}", e)
             null
         }
     }
