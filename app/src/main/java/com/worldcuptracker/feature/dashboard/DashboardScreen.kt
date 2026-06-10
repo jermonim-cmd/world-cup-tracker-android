@@ -87,7 +87,9 @@ fun DashboardRoute(
         onScanFrequencyChange = viewModel::setScanFrequency,
         onStadiumSelected = viewModel::selectStadium,
         onTeamSelected = viewModel::selectTeam,
-        onListingClick = viewModel::fetchLivePrice,
+        onListingClick = { url, match, minPrice, listingCount ->
+            viewModel.fetchLivePrice(url, match, minPrice, listingCount)
+        },
         onCloseLivePrice = viewModel::closeLivePriceDialog,
     )
 }
@@ -103,7 +105,7 @@ fun DashboardScreen(
     onScanFrequencyChange: (ScanFrequency) -> Unit,
     onStadiumSelected: (StadiumKey?) -> Unit,
     onTeamSelected: (String?) -> Unit,
-    onListingClick: (String, String) -> Unit,
+    onListingClick: (String, String, Int, Int) -> Unit,
     onCloseLivePrice: () -> Unit,
 ) {
     val showFrequencyMenu = remember { mutableStateOf(false) }
@@ -218,6 +220,7 @@ fun DashboardScreen(
                     match = livePriceState.match,
                     livePrice = livePriceState.price,
                     url = livePriceState.url,
+                    isCached = livePriceState.isCached,
                     onDismiss = onCloseLivePrice,
                 )
             }
@@ -376,7 +379,7 @@ private fun SuccessContent(
     stadiums: Map<StadiumKey, StadiumData>,
     lastUpdated: String,
     recentUpdates: List<com.worldcuptracker.core.model.PriceUpdate> = emptyList(),
-    onListingClick: (String, String) -> Unit = { _, _ -> },
+    onListingClick: (String, String, Int, Int) -> Unit = { _, _, _, _ -> },
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -403,8 +406,8 @@ private fun SuccessContent(
             stadiums[key]?.let {
                 StadiumCard(
                     it,
-                    onListingClick = { url, match ->
-                        onListingClick(url, match)
+                    onListingClick = { url, match, minPrice, listingCount ->
+                        onListingClick(url, match, minPrice, listingCount)
                     },
                 )
             }
@@ -466,7 +469,7 @@ private fun ErrorContent(
 @Composable
 private fun StadiumCard(
     data: StadiumData,
-    onListingClick: (String, String) -> Unit = { _, _ -> },
+    onListingClick: (String, String, Int, Int) -> Unit = { _, _, _, _ -> },
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -526,8 +529,8 @@ private fun StadiumCard(
                     )
                     Spacer(Modifier.height(6.dp))
                     data.listings.forEach { listing ->
-                        ListingRow(listing) { url, match ->
-                            onListingClick(url, match)
+                        ListingRow(listing) { url, match, minPrice, listingCount ->
+                            onListingClick(url, match, minPrice, listingCount)
                         }
                         Spacer(Modifier.height(6.dp))
                     }
@@ -558,7 +561,7 @@ private fun StatItem(
 }
 
 @Composable
-private fun ListingRow(listing: TicketListing, onClick: (String, String) -> Unit = { _, _ -> }) {
+private fun ListingRow(listing: TicketListing, onClick: (String, String, Int, Int) -> Unit = { _, _, _, _ -> }) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -566,7 +569,7 @@ private fun ListingRow(listing: TicketListing, onClick: (String, String) -> Unit
             .background(NavyDark)
             .padding(horizontal = 10.dp, vertical = 8.dp)
             .clickable(enabled = listing.url.isNotEmpty()) {
-                onClick(listing.url, listing.match)
+                onClick(listing.url, listing.match, listing.minPrice, listing.listingCount)
             },
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -647,6 +650,7 @@ private fun LivePriceDialog(
     livePrice: LivePrice,
     url: String,
     onDismiss: () -> Unit,
+    isCached: Boolean = false,
 ) {
     val context = LocalContext.current
 
@@ -654,7 +658,23 @@ private fun LivePriceDialog(
         onDismissRequest = onDismiss,
         title = {
             Column {
-                Text("Live Prices", color = TextPrimary, fontWeight = FontWeight.Bold)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Ticket Prices", color = TextPrimary, fontWeight = FontWeight.Bold)
+                    if (isCached) {
+                        Text(
+                            "Cached",
+                            color = TextMuted,
+                            fontSize = 10.sp,
+                            modifier = Modifier
+                                .background(Color(0xFF1F3A4D), RoundedCornerShape(4.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
                 Text(match, color = TextMuted, fontSize = 12.sp)
             }
         },

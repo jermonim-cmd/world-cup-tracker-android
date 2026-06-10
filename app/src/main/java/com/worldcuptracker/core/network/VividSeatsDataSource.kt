@@ -211,10 +211,13 @@ class VividSeatsDataSource @Inject constructor(
             val html = response.body?.string() ?: return null
             Log.d(TAG, "✓ Fetched live price HTML (${html.length} bytes)")
 
-            // Extract prices from HTML listings
-            val prices = extractPricesFromHtml(html)
+            // Try multiple strategies to extract prices
+            val prices = extractPricesFromJson(html)
+                ?: extractPricesFromHtml(html)
+                ?: emptyList()
+
             if (prices.isEmpty()) {
-                Log.d(TAG, "✗ No prices found in live fetch")
+                Log.d(TAG, "✗ No prices found in live fetch from both JSON and HTML")
                 return null
             }
 
@@ -233,53 +236,103 @@ class VividSeatsDataSource @Inject constructor(
                 estimatedTotal = estimatedTotal
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Live price fetch error", e)
+            Log.e(TAG, "Live price fetch error: ${e.message}", e)
             null
         }
     }
 
-    private fun extractPricesFromHtml(html: String): List<Int> {
-        val prices = mutableListOf<Int>()
-        val doc = Jsoup.parse(html)
+    private fun extractPricesFromJson(html: String): List<Int>? {
+        return try {
+            val doc = Jsoup.parse(html)
+            val script = doc.select("script#__NEXT_DATA__").firstOrNull()?.data()
+                ?: doc.select("script").filter {
+                    it.data().contains("initialProductionListData")
+                }.firstOrNull()?.data()
+                ?: return null
 
-        // Try to find prices in listing elements
-        val elements = doc.select("[data-testid^=production-listing]")
+            Log.d(TAG, "  Attempting JSON extraction (${script.length} bytes)")
 
-        elements.forEach { el ->
-            val text = el.text()
-            val priceMatch = Regex("\\$(\\d[\\d,]*)").find(text)
-            priceMatch?.let {
-                val price = it.groupValues[1].replace(",", "").toIntOrNull()
-                if (price != null && price > 0) {
-                    prices.add(price)
-                }
-            }
-        }
+            val prices = mutableListOf<Int>()
 
-        // If HTML parsing fails, try JSON extraction
-        if (prices.isEmpty()) {
+            // Try the exact path from the current structure
             try {
-                val script = Jsoup.parse(html).select("script#__NEXT_DATA__").firstOrNull()?.data()
-                if (script != null) {
-                    val items = JSONObject(script)
-                        .getJSONObject("props")
-                        .getJSONObject("pageProps")
-                        .getJSONObject("initialProductionListData")
-                        .getJSONArray("items")
+                val items = JSONObject(script)
+                    .getJSONObject("props")
+                    .getJSONObject("pageProps")
+                    .getJSONObject("initialProductionListData")
+                    .getJSONArray("items")
 
-                    for (i in 0 until items.length()) {
-                        val item = items.getJSONObject(i)
-                        val price = item.optInt("minPrice", 0)
-                        if (price > 0) {
+                for (i in 0 until items.length()) {
+                    val item = items.getJSONObject(i)
+                    val price = item.optInt("minPrice", 0)
+                    if (price > 0) {
+                        prices.add(price)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "  JSON path structure different, trying alternative...")
+                // Try alternative structure
+                return null
+            }
+
+            if (prices.isNotEmpty()) {
+                Log.d(TAG, "  ✓ JSON extraction found ${prices.size} prices")
+                prices
+            } else null
+        } catch (e: Exception) {
+            Log.d(TAG, "  JSON extraction failed: ${e.message}")
+            null
+        }
+    }
+
+    private fun extractPricesFromHtml(html: String): List<Int>? {
+        return try {
+            val prices = mutableListOf<Int>()
+            val doc = Jsoup.parse(html)
+
+            Log.d(TAG, "  Attempting HTML extraction")
+
+            // Try multiple selectors for price elements
+            val selectors = listOf(
+                "[data-testid^=production-listing]",
+                "[class*='price']",
+                "[class*='Price']",
+                "div[role='button']",
+                "[class*='listing']"
+            )
+
+            for (selector in selectors) {
+                val elements = doc.select(selector)
+                if (elements.isEmpty()) continue
+
+                Log.d(TAG, "    Found ${elements.size} elements with selector: $selector")
+
+                elements.forEach { el ->
+                    val text = el.text()
+                    // Look for dollar amounts
+                    val priceMatches = Regex("\\$(\\d{1,5}(?:,\\d{3})*(?:\\.\\d{2})?)").findAll(text)
+                    priceMatches.forEach { match ->
+                        val priceStr = match.groupValues[1].replace(",", "")
+                        val price = priceStr.toDoubleOrNull()?.toInt()
+                        if (price != null && price > 0 && price < 10000) {
                             prices.add(price)
                         }
                     }
                 }
-            } catch (e: Exception) {
-                Log.d(TAG, "JSON extraction for live prices failed: ${e.message}")
-            }
-        }
 
-        return prices
+                if (prices.isNotEmpty()) break
+            }
+
+            if (prices.isNotEmpty()) {
+                Log.d(TAG, "  ✓ HTML extraction found ${prices.size} prices")
+                prices.distinct()
+            } else {
+                Log.d(TAG, "  ✗ HTML extraction found no prices")
+                null
+            }
+        } catch (e: Exception) {
+            Log.d(TAG, "  HTML extraction error: ${e.message}")
+            null
+        }
     }
 }

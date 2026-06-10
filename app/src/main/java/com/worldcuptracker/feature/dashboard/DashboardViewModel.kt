@@ -178,7 +178,7 @@ class DashboardViewModel @Inject constructor(
         return discoveredTeams.ifEmpty { WorldCupTeams.ALL }.sorted()
     }
 
-    fun fetchLivePrice(url: String, match: String) {
+    fun fetchLivePrice(url: String, match: String, cachedMinPrice: Int = 0, cachedListingCount: Int = 0) {
         _livePriceState.value = LivePriceState.Loading(match)
         viewModelScope.launch {
             runCatching {
@@ -186,11 +186,34 @@ class DashboardViewModel @Inject constructor(
             }.onSuccess { livePrice ->
                 if (livePrice != null) {
                     _livePriceState.value = LivePriceState.Success(match, livePrice, url)
+                } else if (cachedMinPrice > 0) {
+                    // Fallback to cached price if live fetch fails
+                    val fallbackPrice = LivePrice(
+                        minPrice = cachedMinPrice,
+                        maxPrice = cachedMinPrice,
+                        averagePrice = cachedMinPrice,
+                        listingCount = cachedListingCount,
+                        estimatedTotal = (cachedMinPrice * 1.15).toInt()
+                    )
+                    _livePriceState.value = LivePriceState.Success(
+                        match,
+                        fallbackPrice,
+                        url,
+                        isCached = true
+                    )
                 } else {
-                    _livePriceState.value = LivePriceState.Error(match, "Could not fetch live prices", url)
+                    _livePriceState.value = LivePriceState.Error(
+                        match,
+                        "Could not fetch live prices. Try opening the link directly.",
+                        url
+                    )
                 }
             }.onFailure { error ->
-                _livePriceState.value = LivePriceState.Error(match, error.message ?: "Unknown error", url)
+                _livePriceState.value = LivePriceState.Error(
+                    match,
+                    error.message ?: "Unknown error",
+                    url
+                )
             }
         }
     }
@@ -203,6 +226,6 @@ class DashboardViewModel @Inject constructor(
 sealed class LivePriceState {
     object Idle : LivePriceState()
     data class Loading(val match: String) : LivePriceState()
-    data class Success(val match: String, val price: LivePrice, val url: String) : LivePriceState()
+    data class Success(val match: String, val price: LivePrice, val url: String, val isCached: Boolean = false) : LivePriceState()
     data class Error(val match: String, val message: String, val url: String) : LivePriceState()
 }
