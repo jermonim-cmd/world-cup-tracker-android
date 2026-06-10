@@ -598,19 +598,12 @@ private fun ListingRow(listing: TicketListing, onClick: (String, String, Int, In
             }
         }
         Spacer(Modifier.width(8.dp))
-        Column(horizontalAlignment = Alignment.End) {
-            Text(
-                text = "\$${listing.minPrice.toFormattedPrice()}",
-                color = BlueAccent,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-            )
-            Text(
-                text = listing.currency,
-                color = SlateText,
-                fontSize = 9.sp,
-            )
-        }
+        Text(
+            text = "\$${listing.minPrice.toFormattedPrice()} CAD",
+            color = BlueAccent,
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp,
+        )
     }
 }
 
@@ -670,19 +663,7 @@ private fun LivePriceDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Ticket Prices", color = TextPrimary, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            livePrice.currency,
-                            color = BlueAccent,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier
-                                .background(Color(0xFF1F3A4D), RoundedCornerShape(4.dp))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
+                    Text("Ticket Prices (CAD)", color = TextPrimary, fontWeight = FontWeight.Bold)
                     if (isCached) {
                         Text(
                             "Cached",

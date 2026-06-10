@@ -9,7 +9,7 @@ data class TicketListing(
     val rawDate: String = "", // ISO date for sorting (e.g., "2024-06-12")
     val url: String = "", // VividSeats URL for this game
     val listingCount: Int = 0, // Number of available listings for this game
-    val currency: String = "USD", // Currency code (USD or CAD)
+    val currency: String = "CAD", // Always CAD
 )
 
 enum class StadiumKey(

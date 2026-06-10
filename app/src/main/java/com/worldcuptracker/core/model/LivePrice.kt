@@ -11,10 +11,19 @@ data class LivePrice(
     val facilityFeeAmount: Int = 0, // Extracted facility fee
     val taxAmount: Int = 0, // Extracted tax
     val hasActualFees: Boolean = false, // Whether fees were parsed from page
-    val currency: String = "USD", // Currency (USD or CAD)
+    val currency: String = "CAD", // Always CAD
+    val originalCurrency: String = "USD", // Original currency before conversion
 )
 
-enum class Currency(val code: String, val symbol: String) {
-    USD("USD", "$"),
-    CAD("CAD", "$"),
+object CurrencyConverter {
+    // USD to CAD exchange rate (typically 1 USD = 1.36 CAD)
+    private const val USD_TO_CAD_RATE = 1.36
+
+    fun usdToCad(priceUsd: Int): Int {
+        return (priceUsd * USD_TO_CAD_RATE).toInt()
+    }
+
+    fun usdToCadDouble(priceUsd: Double): Double {
+        return priceUsd * USD_TO_CAD_RATE
+    }
 }

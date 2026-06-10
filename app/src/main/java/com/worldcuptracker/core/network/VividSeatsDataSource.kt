@@ -1,6 +1,7 @@
 package com.worldcuptracker.core.network
 
 import android.util.Log
+import com.worldcuptracker.core.model.CurrencyConverter
 import com.worldcuptracker.core.model.LivePrice
 import com.worldcuptracker.core.model.StadiumKey
 import com.worldcuptracker.core.model.TicketListing
@@ -112,16 +113,19 @@ class VividSeatsDataSource @Inject constructor(
                 val url = if (webPath.isNotEmpty()) "https://www.vividseats.com$webPath" else ""
                 val listingCount = item.optInt("listingCount", 0)
 
+                val priceUsd = item.optInt("minPrice", 0)
+                val priceCad = CurrencyConverter.usdToCad(priceUsd)
+
                 results.add(TicketListing(
                     match = name,
                     date = formatIsoDate(item.optString("localDate")),
-                    minPrice = item.optInt("minPrice", 0),
+                    minPrice = priceCad,
                     source = "VividSeats",
                     stadiumKey = stadium,
                     rawDate = item.optString("localDate"),
                     url = url,
                     listingCount = listingCount,
-                    currency = getCurrencyForStadium(stadium)
+                    currency = "CAD"
                 ))
             }
 
@@ -222,17 +226,25 @@ class VividSeatsDataSource @Inject constructor(
                 return null
             }
 
-            val minPrice = prices.minOrNull() ?: 0
-            val maxPrice = prices.maxOrNull() ?: 0
-            val avgPrice = prices.average().toInt()
+            val minPriceUsd = prices.minOrNull() ?: 0
+            val maxPriceUsd = prices.maxOrNull() ?: 0
+            val avgPriceUsd = prices.average().toInt()
 
-            // Try to extract actual fees from the page
-            val fees = extractActualFees(html, minPrice)
+            // Convert to CAD
+            val minPrice = CurrencyConverter.usdToCad(minPriceUsd)
+            val maxPrice = CurrencyConverter.usdToCad(maxPriceUsd)
+            val avgPrice = CurrencyConverter.usdToCad(avgPriceUsd)
 
-            Log.d(TAG, "✓ Live prices: min=$minPrice, avg=$avgPrice, max=$maxPrice, count=${prices.size}")
-            Log.d(TAG, "  Fees: service=${fees.serviceFee}, facility=${fees.facilityFee}, tax=${fees.tax}, hasActual=${fees.hasActualFees}")
+            // Try to extract actual fees from the page (in USD, then convert to CAD)
+            val feesUsd = extractActualFees(html, minPriceUsd)
+            val serviceFee = CurrencyConverter.usdToCad(feesUsd.serviceFee)
+            val facilityFee = CurrencyConverter.usdToCad(feesUsd.facilityFee)
+            val tax = CurrencyConverter.usdToCad(feesUsd.tax)
 
-            val estimatedTotal = minPrice + fees.serviceFee + fees.facilityFee + fees.tax
+            Log.d(TAG, "✓ Live prices (CAD): min=$minPrice, avg=$avgPrice, max=$maxPrice, count=${prices.size}")
+            Log.d(TAG, "  Fees (CAD): service=$serviceFee, facility=$facilityFee, tax=$tax, hasActual=${feesUsd.hasActualFees}")
+
+            val estimatedTotal = minPrice + serviceFee + facilityFee + tax
 
             LivePrice(
                 minPrice = minPrice,
@@ -240,10 +252,11 @@ class VividSeatsDataSource @Inject constructor(
                 averagePrice = avgPrice,
                 listingCount = prices.size,
                 estimatedTotal = estimatedTotal,
-                serviceFeeAmount = fees.serviceFee,
-                facilityFeeAmount = fees.facilityFee,
-                taxAmount = fees.tax,
-                hasActualFees = fees.hasActualFees
+                serviceFeeAmount = serviceFee,
+                facilityFeeAmount = facilityFee,
+                taxAmount = tax,
+                hasActualFees = feesUsd.hasActualFees,
+                originalCurrency = "USD"
             )
         } catch (e: Exception) {
             Log.e(TAG, "Live price fetch error: ${e.message}", e)
@@ -382,13 +395,6 @@ class VividSeatsDataSource @Inject constructor(
         val tax: Int,
         val hasActualFees: Boolean = false,
     )
-
-    private fun getCurrencyForStadium(stadium: StadiumKey): String {
-        return when (stadium) {
-            StadiumKey.TORONTO, StadiumKey.VANCOUVER -> "CAD"
-            else -> "USD"
-        }
-    }
 
     private fun extractPricesFromHtml(html: String): List<Int>? {
         return try {
