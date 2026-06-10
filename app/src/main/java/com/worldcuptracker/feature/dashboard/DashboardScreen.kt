@@ -240,13 +240,25 @@ fun DashboardScreen(
                 )
             }
             is LivePriceState.Error -> {
+                val context = LocalContext.current
                 AlertDialog(
                     onDismissRequest = onCloseLivePrice,
-                    title = { Text("Could not load prices", color = TextPrimary) },
-                    text = { Text(livePriceState.message, color = TextMuted) },
+                    title = { Text("Could not load live prices", color = TextPrimary) },
+                    text = { Text(livePriceState.message, color = TextMuted, fontSize = 12.sp) },
                     confirmButton = {
+                        TextButton(
+                            onClick = {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(livePriceState.url))
+                                context.startActivity(intent)
+                                onCloseLivePrice()
+                            },
+                        ) {
+                            Text("Open VividSeats")
+                        }
+                    },
+                    dismissButton = {
                         TextButton(onClick = onCloseLivePrice) {
-                            Text("OK")
+                            Text("Close")
                         }
                     },
                     containerColor = NavyMid,

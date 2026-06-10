@@ -185,33 +185,19 @@ class DashboardViewModel @Inject constructor(
                 vividSeatsDataSource.fetchLivePrice(url)
             }.onSuccess { livePrice ->
                 if (livePrice != null) {
-                    _livePriceState.value = LivePriceState.Success(match, livePrice, url)
-                } else if (cachedMinPrice > 0) {
-                    // Fallback to cached price if live fetch fails
-                    val fallbackPrice = LivePrice(
-                        minPrice = cachedMinPrice,
-                        maxPrice = cachedMinPrice,
-                        averagePrice = cachedMinPrice,
-                        listingCount = cachedListingCount,
-                        estimatedTotal = (cachedMinPrice * 1.15).toInt()
-                    )
-                    _livePriceState.value = LivePriceState.Success(
-                        match,
-                        fallbackPrice,
-                        url,
-                        isCached = true
-                    )
+                    _livePriceState.value = LivePriceState.Success(match, livePrice, url, isCached = false)
                 } else {
+                    // If live fetch fails, show error encouraging user to open link
                     _livePriceState.value = LivePriceState.Error(
                         match,
-                        "Could not fetch live prices. Try opening the link directly.",
+                        "Could not fetch live prices from Vivid Seats. Opening app may show prices that differ from website if it hasn't refreshed recently. Try opening the link to see current prices.",
                         url
                     )
                 }
             }.onFailure { error ->
                 _livePriceState.value = LivePriceState.Error(
                     match,
-                    error.message ?: "Unknown error",
+                    "Network error: ${error.message ?: "Failed to fetch prices"}. Try opening the link directly on Vivid Seats.",
                     url
                 )
             }
