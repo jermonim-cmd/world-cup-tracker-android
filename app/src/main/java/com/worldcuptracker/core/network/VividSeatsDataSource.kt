@@ -252,9 +252,13 @@ class VividSeatsDataSource @Inject constructor(
                 return null
             }
 
+            Log.d(TAG, "Extracted prices (count=${prices.size}): $prices")
+
             val minPriceRaw = prices.minOrNull() ?: 0
             val maxPriceRaw = prices.maxOrNull() ?: 0
             val avgPriceRaw = prices.average().toInt()
+
+            Log.d(TAG, "Price stats before conversion: min=$minPriceRaw, max=$maxPriceRaw, avg=$avgPriceRaw")
 
             // Canadian stadiums: prices already in CAD, don't convert
             // US stadiums: prices in USD, convert to CAD
@@ -263,7 +267,7 @@ class VividSeatsDataSource @Inject constructor(
             val maxPrice = if (isCanadian) maxPriceRaw else CurrencyConverter.usdToCad(maxPriceRaw)
             val avgPrice = if (isCanadian) avgPriceRaw else CurrencyConverter.usdToCad(avgPriceRaw)
 
-            Log.d(TAG, "Live prices (${if (isCanadian) "CAD - no conversion" else "USD converted"}): min=$minPrice, avg=$avgPrice, max=$maxPrice")
+            Log.d(TAG, "Live prices (${if (isCanadian) "CAD - no conversion" else "USD converted"}): min=$minPrice, avg=$avgPrice, max=$maxPrice, isCanadian=$isCanadian")
 
             // Try to extract actual fees from the page (in USD, then convert to CAD)
             val feesUsd = extractActualFees(html, minPriceRaw)
