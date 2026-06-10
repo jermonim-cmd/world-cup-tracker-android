@@ -24,6 +24,9 @@ class VividSeatsDataSource @Inject constructor(
     }
 
     fun fetchListings(): List<TicketListing> {
+        // Vivid Seats prices are in the currency of where you're accessing from:
+        // - Canadian stadiums (Toronto, Vancouver): Prices already in CAD
+        // - US stadiums: Prices in USD, need to convert to CAD (1 USD = 1.36 CAD)
         val request = Request.Builder()
             .url(URL)
             .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
@@ -113,8 +116,14 @@ class VividSeatsDataSource @Inject constructor(
                 val url = if (webPath.isNotEmpty()) "https://www.vividseats.com$webPath" else ""
                 val listingCount = item.optInt("listingCount", 0)
 
-                val priceUsd = item.optInt("minPrice", 0)
-                val priceCad = CurrencyConverter.usdToCad(priceUsd)
+                val priceFromApi = item.optInt("minPrice", 0)
+                // Toronto and Vancouver prices are already in CAD from Vivid Seats
+                // US stadium prices are in USD and need conversion
+                val priceCad = if (isCanadianStadium(stadium)) {
+                    priceFromApi // Already in CAD
+                } else {
+                    CurrencyConverter.usdToCad(priceFromApi) // Convert USD to CAD
+                }
 
                 results.add(TicketListing(
                     match = name,
@@ -226,17 +235,19 @@ class VividSeatsDataSource @Inject constructor(
                 return null
             }
 
-            val minPriceUsd = prices.minOrNull() ?: 0
-            val maxPriceUsd = prices.maxOrNull() ?: 0
-            val avgPriceUsd = prices.average().toInt()
+            val minPriceRaw = prices.minOrNull() ?: 0
+            val maxPriceRaw = prices.maxOrNull() ?: 0
+            val avgPriceRaw = prices.average().toInt()
 
-            // Convert to CAD
-            val minPrice = CurrencyConverter.usdToCad(minPriceUsd)
-            val maxPrice = CurrencyConverter.usdToCad(maxPriceUsd)
-            val avgPrice = CurrencyConverter.usdToCad(avgPriceUsd)
+            // Determine if we need currency conversion (Canadian stadiums are already in CAD)
+            // Since we can't detect stadium from live fetch, assume most are USD
+            // The minPrice will be corrected when used in fetchLivePrice context
+            val minPrice = CurrencyConverter.usdToCad(minPriceRaw)
+            val maxPrice = CurrencyConverter.usdToCad(maxPriceRaw)
+            val avgPrice = CurrencyConverter.usdToCad(avgPriceRaw)
 
             // Try to extract actual fees from the page (in USD, then convert to CAD)
-            val feesUsd = extractActualFees(html, minPriceUsd)
+            val feesUsd = extractActualFees(html, minPriceRaw)
             val serviceFee = CurrencyConverter.usdToCad(feesUsd.serviceFee)
             val facilityFee = CurrencyConverter.usdToCad(feesUsd.facilityFee)
             val tax = CurrencyConverter.usdToCad(feesUsd.tax)
@@ -395,6 +406,10 @@ class VividSeatsDataSource @Inject constructor(
         val tax: Int,
         val hasActualFees: Boolean = false,
     )
+
+    private fun isCanadianStadium(stadium: StadiumKey): Boolean {
+        return stadium == StadiumKey.TORONTO || stadium == StadiumKey.VANCOUVER
+    }
 
     private fun extractPricesFromHtml(html: String): List<Int>? {
         return try {
