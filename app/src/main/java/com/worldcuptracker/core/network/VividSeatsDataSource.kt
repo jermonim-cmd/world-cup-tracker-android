@@ -206,13 +206,13 @@ class VividSeatsDataSource @Inject constructor(
         } catch (_: Exception) { "" }
     }
 
-    fun fetchLivePrice(url: String): LivePrice? {
+    fun fetchLivePrice(url: String, stadium: StadiumKey? = null): LivePrice? {
         if (url.isEmpty()) {
             Log.e(TAG, "Live price fetch: Empty URL provided")
             return null
         }
 
-        Log.d(TAG, "Fetching live price from: $url")
+        Log.d(TAG, "Fetching live price from: $url (stadium: ${stadium?.displayName})")
 
         val request = Request.Builder()
             .url(url)
@@ -256,12 +256,14 @@ class VividSeatsDataSource @Inject constructor(
             val maxPriceRaw = prices.maxOrNull() ?: 0
             val avgPriceRaw = prices.average().toInt()
 
-            // Determine if we need currency conversion (Canadian stadiums are already in CAD)
-            // Since we can't detect stadium from live fetch, assume most are USD
-            // The minPrice will be corrected when used in fetchLivePrice context
-            val minPrice = CurrencyConverter.usdToCad(minPriceRaw)
-            val maxPrice = CurrencyConverter.usdToCad(maxPriceRaw)
-            val avgPrice = CurrencyConverter.usdToCad(avgPriceRaw)
+            // Canadian stadiums: prices already in CAD, don't convert
+            // US stadiums: prices in USD, convert to CAD
+            val isCanadian = isCanadianStadium(stadium)
+            val minPrice = if (isCanadian) minPriceRaw else CurrencyConverter.usdToCad(minPriceRaw)
+            val maxPrice = if (isCanadian) maxPriceRaw else CurrencyConverter.usdToCad(maxPriceRaw)
+            val avgPrice = if (isCanadian) avgPriceRaw else CurrencyConverter.usdToCad(avgPriceRaw)
+
+            Log.d(TAG, "Live prices (${if (isCanadian) "CAD - no conversion" else "USD converted"}): min=$minPrice, avg=$avgPrice, max=$maxPrice")
 
             // Try to extract actual fees from the page (in USD, then convert to CAD)
             val feesUsd = extractActualFees(html, minPriceRaw)
@@ -438,7 +440,7 @@ class VividSeatsDataSource @Inject constructor(
         val hasActualFees: Boolean = false,
     )
 
-    private fun isCanadianStadium(stadium: StadiumKey): Boolean {
+    private fun isCanadianStadium(stadium: StadiumKey?): Boolean {
         return stadium == StadiumKey.TORONTO || stadium == StadiumKey.VANCOUVER
     }
 

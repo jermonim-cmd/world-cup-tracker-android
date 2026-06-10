@@ -180,13 +180,13 @@ class DashboardViewModel @Inject constructor(
         return discoveredTeams.ifEmpty { WorldCupTeams.ALL }.sorted()
     }
 
-    fun fetchLivePrice(url: String, match: String, cachedMinPrice: Int = 0, cachedListingCount: Int = 0) {
+    fun fetchLivePrice(url: String, match: String, cachedMinPrice: Int = 0, cachedListingCount: Int = 0, stadium: StadiumKey? = null) {
         _livePriceState.value = LivePriceState.Loading(match)
         viewModelScope.launch {
             runCatching {
                 // Use IO dispatcher for network request (cannot run on main thread)
                 withContext(Dispatchers.IO) {
-                    vividSeatsDataSource.fetchLivePrice(url)
+                    vividSeatsDataSource.fetchLivePrice(url, stadium)
                 }
             }.onSuccess { livePrice ->
                 if (livePrice != null) {

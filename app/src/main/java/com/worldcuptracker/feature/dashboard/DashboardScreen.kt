@@ -87,8 +87,8 @@ fun DashboardRoute(
         onScanFrequencyChange = viewModel::setScanFrequency,
         onStadiumSelected = viewModel::selectStadium,
         onTeamSelected = viewModel::selectTeam,
-        onListingClick = { url, match, minPrice, listingCount ->
-            viewModel.fetchLivePrice(url, match, minPrice, listingCount)
+        onListingClick = { url, match, minPrice, listingCount, stadium ->
+            viewModel.fetchLivePrice(url, match, minPrice, listingCount, stadium)
         },
         onCloseLivePrice = viewModel::closeLivePriceDialog,
     )
@@ -105,7 +105,7 @@ fun DashboardScreen(
     onScanFrequencyChange: (ScanFrequency) -> Unit,
     onStadiumSelected: (StadiumKey?) -> Unit,
     onTeamSelected: (String?) -> Unit,
-    onListingClick: (String, String, Int, Int) -> Unit,
+    onListingClick: (String, String, Int, Int, StadiumKey) -> Unit,
     onCloseLivePrice: () -> Unit,
 ) {
     val showFrequencyMenu = remember { mutableStateOf(false) }
@@ -391,7 +391,7 @@ private fun SuccessContent(
     stadiums: Map<StadiumKey, StadiumData>,
     lastUpdated: String,
     recentUpdates: List<com.worldcuptracker.core.model.PriceUpdate> = emptyList(),
-    onListingClick: (String, String, Int, Int) -> Unit = { _, _, _, _ -> },
+    onListingClick: (String, String, Int, Int, StadiumKey) -> Unit = { _, _, _, _, _ -> },
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -419,7 +419,7 @@ private fun SuccessContent(
                 StadiumCard(
                     it,
                     onListingClick = { url, match, minPrice, listingCount ->
-                        onListingClick(url, match, minPrice, listingCount)
+                        onListingClick(url, match, minPrice, listingCount, key)
                     },
                 )
             }
@@ -484,6 +484,7 @@ private fun StadiumCard(
     onListingClick: (String, String, Int, Int) -> Unit = { _, _, _, _ -> },
     modifier: Modifier = Modifier,
 ) {
+    // Note: stadium is passed via key in SuccessContent loop
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
