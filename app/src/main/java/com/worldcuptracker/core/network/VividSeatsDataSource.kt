@@ -267,9 +267,10 @@ class VividSeatsDataSource @Inject constructor(
                 val percentDiff = (priceDiff.toFloat() / cachedMinPrice.toFloat()) * 100
                 Log.d(TAG, "Price validation: extracted=$minPriceRaw, cached=$cachedMinPrice, diff=${percentDiff.toInt()}%")
 
-                // If extracted price is >40% different, reject it (likely wrong extraction)
-                if (percentDiff > 40) {
-                    Log.w(TAG, "⚠️ Extracted price ($minPriceRaw) is ${percentDiff.toInt()}% different from cached ($cachedMinPrice) - likely wrong extraction, rejecting")
+                // If extracted price is >20% different, reject it (live page extraction unreliable)
+                // Batch API is more accurate, so we trust it instead of individual event page
+                if (percentDiff > 20) {
+                    Log.w(TAG, "⚠️ Extracted price ($minPriceRaw) is ${percentDiff.toInt()}% different from cached ($cachedMinPrice) - rejecting live page data, batch API is more reliable")
                     return null
                 }
             }
