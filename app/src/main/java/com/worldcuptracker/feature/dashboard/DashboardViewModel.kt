@@ -186,7 +186,7 @@ class DashboardViewModel @Inject constructor(
             runCatching {
                 // Use IO dispatcher for network request (cannot run on main thread)
                 withContext(Dispatchers.IO) {
-                    vividSeatsDataSource.fetchLivePrice(url, stadium, cachedMinPrice)
+                    vividSeatsDataSource.fetchLivePrice(url, stadium)
                 }
             }.onSuccess { livePrice ->
                 if (livePrice != null) {

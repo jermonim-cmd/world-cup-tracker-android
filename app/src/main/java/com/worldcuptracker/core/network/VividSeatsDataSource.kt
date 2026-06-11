@@ -201,13 +201,13 @@ class VividSeatsDataSource @Inject constructor(
         } catch (_: Exception) { "" }
     }
 
-    fun fetchLivePrice(url: String, stadium: StadiumKey? = null, cachedMinPrice: Int = 0): LivePrice? {
+    fun fetchLivePrice(url: String, stadium: StadiumKey? = null): LivePrice? {
         if (url.isEmpty()) {
             Log.e(TAG, "Live price fetch: Empty URL provided")
             return null
         }
 
-        Log.d(TAG, "Fetching live price from: $url (stadium: ${stadium?.displayName}, cached: $$cachedMinPrice)")
+        Log.d(TAG, "Fetching live price from: $url (stadium: ${stadium?.displayName})")
 
         val request = Request.Builder()
             .url(url)
@@ -243,7 +243,7 @@ class VividSeatsDataSource @Inject constructor(
                 ?: emptyList()
 
             if (prices.isEmpty()) {
-                Log.d(TAG, "✗ No prices found in live fetch from both JSON and HTML")
+                Log.e(TAG, "✗ No prices found in live fetch from both JSON and HTML")
                 return null
             }
 
@@ -254,21 +254,6 @@ class VividSeatsDataSource @Inject constructor(
             val avgPriceRaw = prices.average().toInt()
 
             Log.d(TAG, "Price stats (CAD): min=$minPriceRaw, max=$maxPriceRaw, avg=$avgPriceRaw")
-
-            // Validate extracted price against cached price to avoid extracting wrong prices
-            // (HTML extraction sometimes picks up prices from multiple listings instead of event minimum)
-            if (cachedMinPrice > 0) {
-                val priceDiff = kotlin.math.abs(minPriceRaw - cachedMinPrice)
-                val percentDiff = (priceDiff.toFloat() / cachedMinPrice.toFloat()) * 100
-                Log.d(TAG, "Price validation: extracted=$minPriceRaw, cached=$cachedMinPrice, diff=${percentDiff.toInt()}%")
-
-                // If extracted price is >20% different, reject it (live page extraction unreliable)
-                // Batch API is more accurate, so we trust it instead of individual event page
-                if (percentDiff > 20) {
-                    Log.w(TAG, "⚠️ Extracted price ($minPriceRaw) is ${percentDiff.toInt()}% different from cached ($cachedMinPrice) - rejecting live page data, batch API is more reliable")
-                    return null
-                }
-            }
 
             // All prices from Vivid Seats are already in CAD - no conversion needed
             val minPrice = minPriceRaw
