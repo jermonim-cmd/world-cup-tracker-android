@@ -117,13 +117,8 @@ class VividSeatsDataSource @Inject constructor(
                 val listingCount = item.optInt("listingCount", 0)
 
                 val priceFromApi = item.optInt("minPrice", 0)
-                // Toronto and Vancouver prices are already in CAD from Vivid Seats
-                // US stadium prices are in USD and need conversion
-                val priceCad = if (isCanadianStadium(stadium)) {
-                    priceFromApi // Already in CAD
-                } else {
-                    CurrencyConverter.usdToCad(priceFromApi) // Convert USD to CAD
-                }
+                // All prices from Vivid Seats API are already in CAD - no conversion needed
+                val priceCad = priceFromApi
 
                 results.add(TicketListing(
                     match = name,
@@ -258,7 +253,7 @@ class VividSeatsDataSource @Inject constructor(
             val maxPriceRaw = prices.maxOrNull() ?: 0
             val avgPriceRaw = prices.average().toInt()
 
-            Log.d(TAG, "Price stats before conversion: min=$minPriceRaw, max=$maxPriceRaw, avg=$avgPriceRaw")
+            Log.d(TAG, "Price stats (CAD): min=$minPriceRaw, max=$maxPriceRaw, avg=$avgPriceRaw")
 
             // Validate extracted price against cached price to avoid extracting wrong prices
             // (HTML extraction sometimes picks up prices from multiple listings instead of event minimum)
@@ -275,20 +270,18 @@ class VividSeatsDataSource @Inject constructor(
                 }
             }
 
-            // Canadian stadiums: prices already in CAD, don't convert
-            // US stadiums: prices in USD, convert to CAD
-            val isCanadian = isCanadianStadium(stadium)
-            val minPrice = if (isCanadian) minPriceRaw else CurrencyConverter.usdToCad(minPriceRaw)
-            val maxPrice = if (isCanadian) maxPriceRaw else CurrencyConverter.usdToCad(maxPriceRaw)
-            val avgPrice = if (isCanadian) avgPriceRaw else CurrencyConverter.usdToCad(avgPriceRaw)
+            // All prices from Vivid Seats are already in CAD - no conversion needed
+            val minPrice = minPriceRaw
+            val maxPrice = maxPriceRaw
+            val avgPrice = avgPriceRaw
 
-            Log.d(TAG, "Live prices (${if (isCanadian) "CAD - no conversion" else "USD converted"}): min=$minPrice, avg=$avgPrice, max=$maxPrice, isCanadian=$isCanadian")
+            Log.d(TAG, "Live prices (CAD - no conversion needed): min=$minPrice, avg=$avgPrice, max=$maxPrice")
 
-            // Try to extract actual fees from the page (in USD, then convert to CAD)
+            // Fees are also in CAD
             val feesUsd = extractActualFees(html, minPriceRaw)
-            val serviceFee = CurrencyConverter.usdToCad(feesUsd.serviceFee)
-            val facilityFee = CurrencyConverter.usdToCad(feesUsd.facilityFee)
-            val tax = CurrencyConverter.usdToCad(feesUsd.tax)
+            val serviceFee = feesUsd.serviceFee
+            val facilityFee = feesUsd.facilityFee
+            val tax = feesUsd.tax
 
             Log.d(TAG, "✓ Live prices (CAD): min=$minPrice, avg=$avgPrice, max=$maxPrice, count=${prices.size}")
             Log.d(TAG, "  Fees (CAD): service=$serviceFee, facility=$facilityFee, tax=$tax, hasActual=${feesUsd.hasActualFees}")
