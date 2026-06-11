@@ -181,30 +181,22 @@ class DashboardViewModel @Inject constructor(
     }
 
     fun fetchLivePrice(url: String, match: String, cachedMinPrice: Int = 0, cachedListingCount: Int = 0, stadium: StadiumKey? = null) {
-        _livePriceState.value = LivePriceState.Loading(match)
-        viewModelScope.launch {
-            runCatching {
-                // Use IO dispatcher for network request (cannot run on main thread)
-                withContext(Dispatchers.IO) {
-                    vividSeatsDataSource.fetchLivePrice(url, stadium)
-                }
-            }.onSuccess { livePrice ->
-                if (livePrice != null) {
-                    _livePriceState.value = LivePriceState.Success(match, livePrice, url, isCached = false)
-                } else {
-                    _livePriceState.value = LivePriceState.Error(
-                        match,
-                        "Could not fetch live prices from Vivid Seats. Opening app may show prices that differ from website if it hasn't refreshed recently. Try opening the link to see current prices.",
-                        url
-                    )
-                }
-            }.onFailure { error ->
-                _livePriceState.value = LivePriceState.Error(
-                    match,
-                    "Network error: ${error.message ?: "Failed to fetch prices"}. Try opening the link directly on Vivid Seats.",
-                    url
-                )
-            }
+        if (cachedMinPrice > 0) {
+            // Use the batch API price directly — it's accurate and already in CAD
+            val cachedPrice = LivePrice(
+                minPrice = cachedMinPrice,
+                maxPrice = cachedMinPrice,
+                averagePrice = cachedMinPrice,
+                listingCount = cachedListingCount,
+                estimatedTotal = cachedMinPrice,
+            )
+            _livePriceState.value = LivePriceState.Success(match, cachedPrice, url, isCached = true)
+        } else {
+            _livePriceState.value = LivePriceState.Error(
+                match,
+                "No price data available. Open Vivid Seats to see current prices.",
+                url
+            )
         }
     }
 

@@ -220,7 +220,6 @@ fun DashboardScreen(
                     match = livePriceState.match,
                     livePrice = livePriceState.price,
                     url = livePriceState.url,
-                    isCached = livePriceState.isCached,
                     onDismiss = onCloseLivePrice,
                 )
             }
@@ -663,7 +662,6 @@ private fun LivePriceDialog(
     livePrice: LivePrice,
     url: String,
     onDismiss: () -> Unit,
-    isCached: Boolean = false,
 ) {
     val context = LocalContext.current
 
@@ -677,16 +675,14 @@ private fun LivePriceDialog(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text("Ticket Prices (CAD)", color = TextPrimary, fontWeight = FontWeight.Bold)
-                    if (isCached) {
-                        Text(
-                            "Cached",
-                            color = TextMuted,
-                            fontSize = 10.sp,
-                            modifier = Modifier
-                                .background(Color(0xFF1F3A4D), RoundedCornerShape(4.dp))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
+                    Text(
+                        "Last scan",
+                        color = TextMuted,
+                        fontSize = 10.sp,
+                        modifier = Modifier
+                            .background(Color(0xFF1F3A4D), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
                 }
                 Text(match, color = TextMuted, fontSize = 12.sp)
             }
