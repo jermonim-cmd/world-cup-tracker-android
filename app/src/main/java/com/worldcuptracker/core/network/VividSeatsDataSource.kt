@@ -24,17 +24,19 @@ class VividSeatsDataSource @Inject constructor(
     }
 
     fun fetchListings(): List<TicketListing> {
-        // Vivid Seats prices are in the currency of where you're accessing from:
-        // - Canadian stadiums (Toronto, Vancouver): Prices already in CAD
-        // - US stadiums: Prices in USD, need to convert to CAD (1 USD = 1.36 CAD)
         val request = Request.Builder()
             .url(URL)
-            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-            .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-            .header("Accept-Language", "en-US,en;q=0.5")
-            .header("Referer", "https://www.vividseats.com/")
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
+            .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
+            .header("Accept-Language", "en-US,en;q=0.9")
+            .header("Cache-Control", "no-cache, no-store, must-revalidate")
+            .header("Pragma", "no-cache")
+            .header("Referer", "https://www.google.com/")
             .header("Connection", "keep-alive")
             .header("Upgrade-Insecure-Requests", "1")
+            .header("Sec-Fetch-Dest", "document")
+            .header("Sec-Fetch-Mode", "navigate")
+            .header("Sec-Fetch-Site", "cross-site")
             .build()
 
         return try {
@@ -117,9 +119,8 @@ class VividSeatsDataSource @Inject constructor(
                 val listingCount = item.optInt("listingCount", 0)
 
                 val priceFromApi = item.optInt("minPrice", 0)
-                // Vivid Seats search results always return minPrice in USD regardless of stadium location
-                // Individual event pages (live fetch) show prices in local currency (CAD for Canadian events)
                 val priceCad = CurrencyConverter.usdToCad(priceFromApi)
+                Log.d(TAG, "  Raw minPrice from API: $${priceFromApi} USD → $${priceCad} CAD for ${stadium.displayName}")
 
                 results.add(TicketListing(
                     match = name,
