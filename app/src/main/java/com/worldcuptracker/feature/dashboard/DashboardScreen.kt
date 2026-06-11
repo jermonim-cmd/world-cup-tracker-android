@@ -699,68 +699,43 @@ private fun LivePriceDialog(
 
                 Spacer(Modifier.height(8.dp))
 
-                // Fee Breakdown Card
+                // Current Ticket Price Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = Color(0xFF1F3A4D)),
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(
-                            if (livePrice.hasActualFees) "Actual Fees" else "Estimated Fees",
+                            "Current Ticket Price",
                             color = SlateText,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                         )
 
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(12.dp))
 
-                        // Price breakdown
-                        PriceBreakdownRow("Ticket Price", livePrice.minPrice, TextPrimary)
-                        if (livePrice.serviceFeeAmount > 0) {
-                            PriceBreakdownRow("Service Fee", livePrice.serviceFeeAmount, SlateText)
-                        }
-                        if (livePrice.facilityFeeAmount > 0) {
-                            PriceBreakdownRow("Facility Fee", livePrice.facilityFeeAmount, SlateText)
-                        }
-                        if (livePrice.taxAmount > 0) {
-                            PriceBreakdownRow("Tax", livePrice.taxAmount, SlateText)
-                        }
-
-                        Spacer(Modifier.height(8.dp))
-
-                        // Divider
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(1.dp)
-                                .background(Color(0xFF334155))
-                        )
-
-                        Spacer(Modifier.height(8.dp))
-
-                        // Total
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text("Estimated Total", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("Base Price (CAD)", color = TextPrimary, fontSize = 12.sp)
                             Text(
-                                "$${livePrice.estimatedTotal.toFormattedPrice()}",
+                                "$${livePrice.minPrice.toFormattedPrice()}",
                                 color = GreenPrice,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 18.sp,
                             )
                         }
 
-                        if (!livePrice.hasActualFees) {
-                            Text(
-                                "💡 Exact fees shown at Vivid Seats checkout",
-                                color = TextMuted,
-                                fontSize = 9.sp,
-                                modifier = Modifier.padding(top = 6.dp),
-                            )
-                        }
+                        Spacer(Modifier.height(8.dp))
+
+                        Text(
+                            "ℹ️ Fees added at Vivid Seats checkout — tap button to see exact total",
+                            color = TextMuted,
+                            fontSize = 9.sp,
+                            lineHeight = 12.sp,
+                        )
                     }
                 }
 
@@ -806,22 +781,6 @@ private fun PriceStatRow(label: String, price: Int, color: Color) {
             color = color,
             fontWeight = FontWeight.Bold,
             fontSize = 14.sp,
-        )
-    }
-}
-
-@Composable
-private fun PriceBreakdownRow(label: String, amount: Int, color: Color) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(label, color = color, fontSize = 11.sp)
-        Text(
-            "$${amount.toFormattedPrice()}",
-            color = color,
-            fontSize = 11.sp,
         )
     }
 }
