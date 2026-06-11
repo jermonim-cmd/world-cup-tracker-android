@@ -117,13 +117,9 @@ class VividSeatsDataSource @Inject constructor(
                 val listingCount = item.optInt("listingCount", 0)
 
                 val priceFromApi = item.optInt("minPrice", 0)
-                // Canadian stadiums (Toronto, Vancouver) already return prices in CAD
-                // US stadium prices are in USD and need conversion to CAD
-                val priceCad = if (isCanadianStadium(stadium)) {
-                    priceFromApi
-                } else {
-                    CurrencyConverter.usdToCad(priceFromApi)
-                }
+                // Vivid Seats search results always return minPrice in USD regardless of stadium location
+                // Individual event pages (live fetch) show prices in local currency (CAD for Canadian events)
+                val priceCad = CurrencyConverter.usdToCad(priceFromApi)
 
                 results.add(TicketListing(
                     match = name,
