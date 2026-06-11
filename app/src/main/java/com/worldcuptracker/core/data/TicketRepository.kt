@@ -29,13 +29,15 @@ class TicketRepository @Inject constructor(
         // Group by stadiumKey (assigned by the data source from venue text)
         val grouped = allListings.groupBy { it.stadiumKey }
 
-        StadiumKey.entries.associateWith { key ->
-            StadiumData(
-                key = key,
-                listings = (grouped[key] ?: emptyList()).sortedWith(
-                    compareBy({ it.rawDate }, { it.minPrice })
-                ),
-            )
-        }
+        StadiumKey.entries
+            .filter { key -> grouped.containsKey(key) }
+            .associateWith { key ->
+                StadiumData(
+                    key = key,
+                    listings = (grouped[key] ?: emptyList()).sortedWith(
+                        compareBy({ it.rawDate }, { it.minPrice })
+                    ),
+                )
+            }
     }
 }
