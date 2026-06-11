@@ -117,8 +117,13 @@ class VividSeatsDataSource @Inject constructor(
                 val listingCount = item.optInt("listingCount", 0)
 
                 val priceFromApi = item.optInt("minPrice", 0)
-                // All prices from Vivid Seats API are already in CAD - no conversion needed
-                val priceCad = priceFromApi
+                // Canadian stadiums (Toronto, Vancouver) already return prices in CAD
+                // US stadium prices are in USD and need conversion to CAD
+                val priceCad = if (isCanadianStadium(stadium)) {
+                    priceFromApi
+                } else {
+                    CurrencyConverter.usdToCad(priceFromApi)
+                }
 
                 results.add(TicketListing(
                     match = name,
@@ -255,18 +260,19 @@ class VividSeatsDataSource @Inject constructor(
 
             Log.d(TAG, "Price stats (CAD): min=$minPriceRaw, max=$maxPriceRaw, avg=$avgPriceRaw")
 
-            // All prices from Vivid Seats are already in CAD - no conversion needed
-            val minPrice = minPriceRaw
-            val maxPrice = maxPriceRaw
-            val avgPrice = avgPriceRaw
+            // Canadian stadiums: prices already in CAD, don't convert
+            // US stadiums: prices in USD, convert to CAD
+            val isCanadian = isCanadianStadium(stadium)
+            val minPrice = if (isCanadian) minPriceRaw else CurrencyConverter.usdToCad(minPriceRaw)
+            val maxPrice = if (isCanadian) maxPriceRaw else CurrencyConverter.usdToCad(maxPriceRaw)
+            val avgPrice = if (isCanadian) avgPriceRaw else CurrencyConverter.usdToCad(avgPriceRaw)
 
-            Log.d(TAG, "Live prices (CAD - no conversion needed): min=$minPrice, avg=$avgPrice, max=$maxPrice")
+            Log.d(TAG, "Live prices (${if (isCanadian) "CAD no-conversion" else "USD→CAD"}): min=$minPrice, avg=$avgPrice, max=$maxPrice")
 
-            // Fees are also in CAD
             val feesUsd = extractActualFees(html, minPriceRaw)
-            val serviceFee = feesUsd.serviceFee
-            val facilityFee = feesUsd.facilityFee
-            val tax = feesUsd.tax
+            val serviceFee = if (isCanadian) feesUsd.serviceFee else CurrencyConverter.usdToCad(feesUsd.serviceFee)
+            val facilityFee = if (isCanadian) feesUsd.facilityFee else CurrencyConverter.usdToCad(feesUsd.facilityFee)
+            val tax = if (isCanadian) feesUsd.tax else CurrencyConverter.usdToCad(feesUsd.tax)
 
             Log.d(TAG, "✓ Live prices (CAD): min=$minPrice, avg=$avgPrice, max=$maxPrice, count=${prices.size}")
             Log.d(TAG, "  Fees (CAD): service=$serviceFee, facility=$facilityFee, tax=$tax, hasActual=${feesUsd.hasActualFees}")
