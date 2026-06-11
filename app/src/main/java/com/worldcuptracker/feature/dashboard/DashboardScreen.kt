@@ -715,7 +715,7 @@ private fun LivePriceDialog(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text("Base Price (CAD)", color = TextPrimary, fontSize = 12.sp)
+                            Text("From last scan (CAD)", color = TextPrimary, fontSize = 12.sp)
                             Text(
                                 "$${livePrice.minPrice.toFormattedPrice()}",
                                 color = GreenPrice,
@@ -727,7 +727,7 @@ private fun LivePriceDialog(
                         Spacer(Modifier.height(8.dp))
 
                         Text(
-                            "ℹ️ Fees added at Vivid Seats checkout — tap button to see exact total",
+                            "Prices may differ on Vivid Seats — open link to see current prices + fees",
                             color = TextMuted,
                             fontSize = 9.sp,
                             lineHeight = 12.sp,
